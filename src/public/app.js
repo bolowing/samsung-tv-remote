@@ -10,7 +10,12 @@ async function api(method, path, body) {
     opts.body = JSON.stringify(body);
   }
   const res = await fetch(path, opts);
-  const data = await res.json();
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(res.ok ? "Unexpected response from server" : `Request failed (${res.status})`);
+  }
   if (!res.ok && data.error) {
     throw new Error(data.error);
   }
