@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Samsung TV Remote</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Discovery Screen -->
+  <div id="discovery-screen" class="screen active">
+    <div class="discovery-shell">
+      <div class="discovery-header">
+        <div class="logo-mark">
+          <div class="logo-ring">
+            <div class="logo-dot"></div>
+          </div>
+        </div>
+        <h1>TV Remote</h1>
+        <p class="subtitle">Discover &amp; connect</p>
+      </div>
+
+      <button id="scan-btn" class="scan-btn" onclick="scanForTVs()">
+        <svg class="scan-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <circle cx="10.5" cy="10.5" r="7.5"/>
+          <line x1="16" y1="16" x2="22" y2="22"/>
+        </svg>
+        <span>Scan for TVs</span>
+      </button>
+
+      <div id="scan-status" class="scan-status"></div>
+      <div id="tv-list" class="tv-list"></div>
+
+      <button class="wake-btn" onclick="wakeTV()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M12 2v6M12 18v4M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M2 12h6M18 12h4M4.93 19.07l4.24-4.24M14.83 9.17l4.24-4.24"/>
+        </svg>
+        Wake on LAN
+      </button>
+    </div>
+  </div>
+
+  <!-- Remote Screen -->
+  <div id="remote-screen" class="screen">
+    <div class="remote-shell">
+
+      <!-- Header -->
+      <div class="remote-header">
+        <button class="back-link" onclick="showDiscovery()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <div class="header-info">
+          <span id="connection-dot" class="connection-dot"></span>
+          <span id="tv-name" class="tv-name">Samsung TV</span>
+        </div>
+        <button class="btn btn-power" onclick="sendKey('KEY_POWEROFF')" title="Power">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 2v8"/>
+            <path d="M17.66 6.34A8 8 0 1 1 6.34 6.34"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Smart Search -->
+      <div class="search-bar">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="7.5"/><line x1="16" y1="16" x2="22" y2="22"/></svg>
+        <input type="text" id="smart-input" class="smart-input" placeholder="What do you want to watch?" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="btn btn-smart-send" onclick="doSmartSearch()" id="smart-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+
+      <!-- Streaming Apps -->
+      <div class="apps-strip">
+        <button class="app-btn app-netflix" onclick="launchApp('Netflix')" title="Netflix">
+          <span class="app-logo">N</span>
+        </button>
+        <button class="app-btn app-youtube" onclick="launchApp('YouTube')" title="YouTube">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#fff" d="M9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>
+        </button>
+        <button class="app-btn app-disney" onclick="launchApp('Disney+')" title="Disney+">
+          <span class="app-logo app-sm">D+</span>
+        </button>
+        <button class="app-btn app-hulu" onclick="launchApp('Hulu')" title="Hulu">
+          <span class="app-logo app-xs app-dark">hulu</span>
+        </button>
+        <button class="app-btn app-hbo" onclick="launchApp('HBO Max')" title="Max">
+          <span class="app-logo app-xs">max</span>
+        </button>
+        <button class="app-btn app-prime" onclick="launchApp('Prime Video')" title="Prime Video">
+          <span class="app-logo app-xs app-dark">prime</span>
+        </button>
+      </div>
+
+      <!-- THE ORB — D-pad + Volume + Mute -->
+      <div class="orb-section">
+        <div class="vol-rocker">
+          <button class="btn btn-vol" onclick="sendKey('KEY_VOLUP')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <span class="vol-label">VOL</span>
+          <button class="btn btn-vol" onclick="sendKey('KEY_VOLDOWN')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+
+        <div class="orb-container">
+          <div class="dpad orb">
+            <button class="btn dpad-up" onclick="sendKey('KEY_UP')">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <button class="btn dpad-left" onclick="sendKey('KEY_LEFT')">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button class="btn dpad-center" onclick="sendKey('KEY_ENTER')">OK</button>
+            <button class="btn dpad-right" onclick="sendKey('KEY_RIGHT')">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <button class="btn dpad-down" onclick="sendKey('KEY_DOWN')">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="mute-col">
+          <button class="btn btn-mute" onclick="sendKey('KEY_MUTE')" title="Mute">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Nav Dock -->
+      <div class="nav-dock">
+        <button class="btn btn-nav-lg" onclick="sendKey('KEY_HOME')" title="Home">Home</button>
+        <button class="btn btn-nav-lg" onclick="sendKey('KEY_RETURN')" title="Back">Back</button>
+        <button class="btn btn-nav-lg btn-input" onclick="sendKey('KEY_SOURCE')" title="Input">Input</button>
+        <button class="btn btn-nav-lg" onclick="sendKey('KEY_MENU')" title="Menu">Menu</button>
+      </div>
+
+      <!-- Media Controls -->
+      <div class="media-strip">
+        <button class="btn btn-media" onclick="sendKey('KEY_REWIND')" title="Rewind">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="11 19 2 12 11 5 11 19"/><polygon points="22 19 13 12 22 5 22 19"/></svg>
+        </button>
+        <button class="btn btn-media btn-play" onclick="sendKey('KEY_PLAY')" title="Play">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <button class="btn btn-media" onclick="sendKey('KEY_PAUSE')" title="Pause">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button class="btn btn-media" onclick="sendKey('KEY_STOP')" title="Stop">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="1"/></svg>
+        </button>
+        <button class="btn btn-media" onclick="sendKey('KEY_FF')" title="Fast Forward">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+        </button>
+        <span class="media-sep"></span>
+        <button class="btn btn-quick" onclick="sendKey('KEY_GUIDE')">Guide</button>
+        <button class="btn btn-quick" onclick="sendKey('KEY_INFO')">Info</button>
+        <button class="btn btn-quick" onclick="sendKey('KEY_EXIT')">Exit</button>
+      </div>
+
+      <!-- Expandable sections -->
+      <details class="expand-section">
+        <summary class="expand-toggle">
+          <span>Number Pad</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div class="numpad">
+          <button class="btn btn-num" onclick="sendKey('KEY_1')">1</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_2')">2</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_3')">3</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_4')">4</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_5')">5</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_6')">6</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_7')">7</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_8')">8</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_9')">9</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_CONTENTS')">Apps</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_0')">0</button>
+          <button class="btn btn-num" onclick="sendKey('KEY_CH_LIST')">CH List</button>
+        </div>
+      </details>
+
+      <details class="expand-section">
+        <summary class="expand-toggle">
+          <span>Channels &amp; Extras</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+        <div class="channel-row">
+          <button class="btn btn-ch" onclick="sendKey('KEY_CHUP')">CH +</button>
+          <button class="btn btn-ch" onclick="sendKey('KEY_CHDOWN')">CH &minus;</button>
+        </div>
+        <div class="color-row">
+          <button class="btn btn-color btn-red" onclick="sendKey('KEY_RED')"></button>
+          <button class="btn btn-color btn-green" onclick="sendKey('KEY_GREEN')"></button>
+          <button class="btn btn-color btn-yellow" onclick="sendKey('KEY_YELLOW')"></button>
+          <button class="btn btn-color btn-blue" onclick="sendKey('KEY_CYAN')"></button>
+        </div>
+        <div class="extras-row">
+          <button class="btn btn-extra" onclick="sendKey('KEY_TOOLS')">Tools</button>
+          <button class="btn btn-extra" onclick="sendKey('KEY_PICTURE_SIZE')">P.Size</button>
+        </div>
+      </details>
+
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
