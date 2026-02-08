@@ -69,33 +69,35 @@
         </button>
       </div>
 
-      <!-- Smart Search -->
+      <!-- Search & Cast -->
       <div class="search-bar">
         <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="7.5"/><line x1="16" y1="16" x2="22" y2="22"/></svg>
-        <input type="text" id="smart-input" class="smart-input" placeholder="What do you want to watch?" autocomplete="off" autocorrect="off" spellcheck="false">
+        <input type="text" id="smart-input" class="smart-input" placeholder="Search &amp; cast to TV…" autocomplete="off" autocorrect="off" spellcheck="false" oninput="onSearchInput()">
         <button class="btn btn-smart-send" onclick="doSmartSearch()" id="smart-btn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 10.2V1h9.2M14.8 1H24v9.2M24 14.8V24h-9.2M9.2 24H1v-9.2"/>
+          </svg>
         </button>
       </div>
 
-      <!-- Streaming Apps -->
+      <!-- Streaming Apps (tap = launch, or type a search then tap = cast to that app) -->
       <div class="apps-strip">
-        <button class="app-btn app-netflix" onclick="launchApp('Netflix')" title="Netflix">
+        <button class="app-btn app-netflix" onclick="castToApp('Netflix')" title="Netflix">
           <span class="app-logo">N</span>
         </button>
-        <button class="app-btn app-youtube" onclick="launchApp('YouTube')" title="YouTube">
+        <button class="app-btn app-youtube" onclick="castToApp('YouTube')" title="YouTube">
           <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#fff" d="M9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>
         </button>
-        <button class="app-btn app-disney" onclick="launchApp('Disney+')" title="Disney+">
+        <button class="app-btn app-disney" onclick="castToApp('Disney+')" title="Disney+">
           <span class="app-logo app-sm">D+</span>
         </button>
-        <button class="app-btn app-hulu" onclick="launchApp('Hulu')" title="Hulu">
+        <button class="app-btn app-hulu" onclick="castToApp('Hulu')" title="Hulu">
           <span class="app-logo app-xs app-dark">hulu</span>
         </button>
-        <button class="app-btn app-hbo" onclick="launchApp('HBO Max')" title="Max">
+        <button class="app-btn app-hbo" onclick="castToApp('HBO Max')" title="Max">
           <span class="app-logo app-xs">max</span>
         </button>
-        <button class="app-btn app-prime" onclick="launchApp('Prime Video')" title="Prime Video">
+        <button class="app-btn app-prime" onclick="castToApp('Prime Video')" title="Prime Video">
           <span class="app-logo app-xs app-dark">prime</span>
         </button>
       </div>

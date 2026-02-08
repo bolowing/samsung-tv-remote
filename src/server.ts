@@ -8,7 +8,10 @@ import {
   sendKey,
   sendText,
   launchApp,
+  castToTV,
   smartSearch,
+  parseSmartQuery,
+  searchYouTube,
   wakeTV,
   getStatus,
   disconnect,
@@ -113,6 +116,51 @@ app.post("/api/smart", async (req, res) => {
   } else {
     res.status(500).json({ success: false, error: result.error });
   }
+});
+
+// Cast content to TV via deep link
+app.post("/api/cast", async (req, res) => {
+  const { app: appName, contentId, metaTag } = req.body;
+  if (!appName) {
+    res.status(400).json({ error: "app is required" });
+    return;
+  }
+  if (!contentId && !metaTag) {
+    res.status(400).json({ error: "contentId or metaTag is required" });
+    return;
+  }
+  const result = await castToTV(appName, contentId || "", metaTag);
+  if (result.success) {
+    res.json({ success: true });
+  } else {
+    res.status(500).json({ success: false, error: result.error });
+  }
+});
+
+// Search YouTube for videos (returns results for casting)
+app.get("/api/search/youtube", async (req, res) => {
+  const query = req.query.q as string;
+  if (!query) {
+    res.status(400).json({ error: "q query parameter is required" });
+    return;
+  }
+  try {
+    const results = await searchYouTube(query);
+    res.json({ results });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Parse a natural language query into app + search term
+app.get("/api/parse", (req, res) => {
+  const query = req.query.q as string;
+  if (!query) {
+    res.status(400).json({ error: "q query parameter is required" });
+    return;
+  }
+  const parsed = parseSmartQuery(query);
+  res.json(parsed);
 });
 
 // Wake-on-LAN
