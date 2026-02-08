@@ -14,6 +14,15 @@ const TOKEN_DIR = join(__dirname, "..", ".tokens");
 const TOKEN_FILE = join(TOKEN_DIR, "tv-token.json");
 const APP_NAME = "SamsungWebRemote";
 
+// Timeouts (ms)
+const PROBE_TIMEOUT = 2000;
+const DISCOVERY_TIMEOUT = 2000;
+const WS_HANDSHAKE_TIMEOUT = 15000;
+const SMARTHUB_OPEN_DELAY = 3000;
+const SEARCH_INPUT_DELAY = 1000;
+const SEARCH_RESULTS_DELAY = 3000;
+const NAVIGATE_DELAY = 500;
+
 interface SavedConnection {
   ip: string;
   mac: string;
@@ -31,7 +40,7 @@ async function probeTVByIP(ip: string): Promise<SamsungDevice | null> {
   for (const port of [8001, 8002]) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000);
+      const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT);
       const res = await fetch(`http://${ip}:${port}/api/v2/`, {
         signal: controller.signal,
       });
@@ -50,7 +59,7 @@ async function probeTVByIP(ip: string): Promise<SamsungDevice | null> {
   return null;
 }
 
-export async function discoverTVs(timeout = 2000): Promise<SamsungDevice[]> {
+export async function discoverTVs(timeout = DISCOVERY_TIMEOUT): Promise<SamsungDevice[]> {
   // Try SSDP first
   const devices = await getAwakeSamsungDevices(timeout);
   if (devices.length > 0) return devices;
@@ -119,7 +128,7 @@ function connectWS(
   ip: string,
   port: number,
   token?: string,
-  timeoutMs = 15000
+  timeoutMs = WS_HANDSHAKE_TIMEOUT
 ): Promise<{ ws: WebSocket; token?: string }> {
   return new Promise((resolve, reject) => {
     const url = buildWSUrl(ip, port, token);
@@ -176,7 +185,8 @@ function connectWS(
 export async function connectToTV(
   ip: string,
   mac: string,
-  friendlyName?: string
+  friendlyName?: string,
+  port?: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Disconnect existing
@@ -189,12 +199,16 @@ export async function connectToTV(
     const token =
       saved?.ip === ip && saved.token ? saved.token : undefined;
 
-    // Try port 8002 (wss) first, fall back to 8001 (ws)
+    // If a specific port is given, use it directly; otherwise try 8002 then 8001
     let result: { ws: WebSocket; token?: string };
-    try {
-      result = await connectWS(ip, 8002, token);
-    } catch {
-      result = await connectWS(ip, 8001, token);
+    if (port) {
+      result = await connectWS(ip, port, token);
+    } else {
+      try {
+        result = await connectWS(ip, 8002, token);
+      } catch {
+        result = await connectWS(ip, 8001, token);
+      }
     }
 
     ws = result.ws;
@@ -337,11 +351,18 @@ export async function launchApp(
     return { success: false, error: "Not connected to any TV" };
   }
 
-  const appId = APP_IDS[appName] || appName;
+  const appId = APP_IDS[appName];
+  if (!appId) {
+    // Only allow numeric app IDs if not a known app name
+    if (!/^\d+$/.test(appName)) {
+      return { success: false, error: `Unknown app: ${appName}. Use a known app name or a numeric app ID.` };
+    }
+  }
+  const resolvedId = appId || appName;
 
   try {
     const res = await fetch(
-      `http://${connectedDevice.ip}:8001/api/v2/applications/${appId}`,
+      `http://${connectedDevice.ip}:8001/api/v2/applications/${resolvedId}`,
       { method: "POST" }
     );
     if (!res.ok) {
@@ -357,7 +378,136 @@ export async function launchApp(
   }
 }
 
-// --- Smart Search ---
+// --- Deep Link Casting ---
+
+function deepLinkViaWS(appId: string, metaTag: string): boolean {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  try {
+    ws.send(
+      JSON.stringify({
+        method: "ms.channel.emit",
+        params: {
+          event: "ed.apps.launch",
+          to: "host",
+          data: {
+            appId,
+            action_type: "DEEP_LINK",
+            metaTag,
+          },
+        },
+      })
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function deepLinkViaREST(ip: string, appId: string, metaTag: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `http://${ip}:8001/api/v2/applications/${appId}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: appId, metaTag }),
+      }
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function castToTV(
+  appName: string,
+  contentId: string,
+  metaTag?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!ws || ws.readyState !== WebSocket.OPEN || !connectedDevice) {
+    return { success: false, error: "Not connected to any TV" };
+  }
+
+  const appId = APP_IDS[appName];
+  if (!appId) {
+    return { success: false, error: `Unknown app: ${appName}` };
+  }
+
+  const tag = metaTag || contentId;
+  console.log(`  Casting to ${appName} (${appId}): metaTag=${tag}`);
+
+  // Try WebSocket deep link first (most reliable), fall back to REST
+  if (deepLinkViaWS(appId, tag)) {
+    return { success: true };
+  }
+
+  const ok = await deepLinkViaREST(connectedDevice.ip, appId, tag);
+  if (ok) {
+    return { success: true };
+  }
+
+  return { success: false, error: `Failed to cast to ${appName}` };
+}
+
+// --- YouTube Search (server-side) ---
+
+interface YouTubeResult {
+  videoId: string;
+  title: string;
+  channel: string;
+}
+
+async function searchYouTube(query: string): Promise<YouTubeResult[]> {
+  try {
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
+    const html = await res.text();
+    // Extract video data from ytInitialData JSON embedded in the page
+    const dataMatch = html.match(/var ytInitialData = ({.*?});<\/script>/s);
+    if (!dataMatch) {
+      // Fallback: just grab video IDs
+      const ids = [...html.matchAll(/"videoId":"([a-zA-Z0-9_-]{11})"/g)]
+        .map((m) => m[1])
+        .filter((id, i, arr) => arr.indexOf(id) === i)
+        .slice(0, 5);
+      return ids.map((id) => ({ videoId: id, title: "", channel: "" }));
+    }
+
+    try {
+      const data = JSON.parse(dataMatch[1]);
+      const contents =
+        data?.contents?.twoColumnSearchResultsRenderer?.primaryContents
+          ?.sectionListRenderer?.sections?.[0]?.itemSectionRenderer?.contents || [];
+      const results: YouTubeResult[] = [];
+      for (const item of contents) {
+        const renderer = item.videoRenderer;
+        if (!renderer?.videoId) continue;
+        results.push({
+          videoId: renderer.videoId,
+          title: renderer.title?.runs?.[0]?.text || "",
+          channel: renderer.ownerText?.runs?.[0]?.text || "",
+        });
+        if (results.length >= 5) break;
+      }
+      return results;
+    } catch {
+      // JSON parse failed, fallback to regex
+      const ids = [...html.matchAll(/"videoId":"([a-zA-Z0-9_-]{11})"/g)]
+        .map((m) => m[1])
+        .filter((id, i, arr) => arr.indexOf(id) === i)
+        .slice(0, 5);
+      return ids.map((id) => ({ videoId: id, title: "", channel: "" }));
+    }
+  } catch {
+    return [];
+  }
+}
+
+// --- Smart Search & Cast ---
 
 const APP_KEYWORDS: { pattern: RegExp; app: string }[] = [
   { pattern: /\bon\s+netflix\b|\bnetflix\b/i, app: "Netflix" },
@@ -380,69 +530,7 @@ function parseSmartQuery(query: string): { app: string; search: string } {
   return { app: "YouTube", search };
 }
 
-async function searchYouTube(query: string): Promise<string | null> {
-  try {
-    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-      },
-    });
-    const html = await res.text();
-    // Extract first video ID from ytInitialData
-    const match = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
-}
-
-async function launchAppWithDeepLink(
-  appId: string,
-  deepLink: string
-): Promise<boolean> {
-  if (!connectedDevice) return false;
-
-  // Method 1: Try WebSocket deep link (most reliable)
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    try {
-      ws.send(
-        JSON.stringify({
-          method: "ms.channel.emit",
-          params: {
-            event: "ed.apps.launch",
-            to: "host",
-            data: {
-              appId,
-              action_type: "DEEP_LINK",
-              metaTag: deepLink,
-            },
-          },
-        })
-      );
-      console.log(`  Deep link via WebSocket: ${appId} metaTag=${deepLink}`);
-      return true;
-    } catch (err) {
-      console.log(`  WebSocket deep link failed: ${err}`);
-    }
-  }
-
-  // Method 2: Fallback to REST API
-  try {
-    const res = await fetch(
-      `http://${connectedDevice.ip}:8001/api/v2/applications/${appId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: appId, metaTag: deepLink }),
-      }
-    );
-    console.log(`  Deep link via REST: HTTP ${res.status}`);
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+export { parseSmartQuery, searchYouTube };
 
 export async function smartSearch(
   query: string
@@ -454,13 +542,32 @@ export async function smartSearch(
   const { app, search } = parseSmartQuery(query);
   const searchTerm = search || query;
 
-  console.log(`  Smart search: "${searchTerm}" (app: ${app})`);
+  console.log(`  Smart cast: "${searchTerm}" -> ${app}`);
 
-  // Open SmartHub universal search
+  // For YouTube queries, search for video and deep link directly
+  if (app === "YouTube") {
+    const results = await searchYouTube(searchTerm);
+    if (results.length > 0) {
+      const result = await castToTV("YouTube", results[0].videoId, results[0].videoId);
+      if (result.success) {
+        return { success: true, app, search: searchTerm };
+      }
+    }
+    // Fallback: launch YouTube and search via SmartHub
+    console.log(`  YouTube deep link failed, falling back to SmartHub search`);
+  } else {
+    // For other apps, launch with search query as deep link meta tag
+    const result = await castToTV(app, searchTerm);
+    if (result.success) {
+      return { success: true, app, search: searchTerm };
+    }
+    console.log(`  Deep link to ${app} failed, falling back to SmartHub search`);
+  }
+
+  // Fallback: use SmartHub key-based search
   sendRawKey("KEY_SMART_HUB");
-  await new Promise((r) => setTimeout(r, 3000));
+  await new Promise((r) => setTimeout(r, SMARTHUB_OPEN_DELAY));
 
-  // Send search text via IME
   const encoded = Buffer.from(searchTerm).toString("base64");
   ws.send(
     JSON.stringify({
@@ -472,19 +579,14 @@ export async function smartSearch(
       },
     })
   );
-  console.log(`  Sent text: "${searchTerm}"`);
-  await new Promise((r) => setTimeout(r, 1000));
+  await new Promise((r) => setTimeout(r, SEARCH_INPUT_DELAY));
 
-  // Press Enter to submit search
   sendRawKey("KEY_ENTER");
-  console.log(`  Submitted search, waiting for results...`);
-  await new Promise((r) => setTimeout(r, 3000));
+  await new Promise((r) => setTimeout(r, SEARCH_RESULTS_DELAY));
 
-  // Navigate down to first result and select it
   sendRawKey("KEY_DOWN");
-  await new Promise((r) => setTimeout(r, 500));
+  await new Promise((r) => setTimeout(r, NAVIGATE_DELAY));
   sendRawKey("KEY_ENTER");
-  console.log(`  Selected first result`);
 
   return { success: true, app, search: searchTerm };
 }
