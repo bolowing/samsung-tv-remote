@@ -558,8 +558,8 @@ export async function smartSearch(
     console.log(`  Deep link to ${app} failed, falling back to SmartHub search`);
   }
 
-  // Fallback: use SmartHub key-based search
-  sendRawKey("KEY_SMART_HUB");
+  // Fallback: use SmartHub key-based search (KEY_CONTENTS opens SmartHub on most TVs)
+  sendRawKey("KEY_CONTENTS");
   await new Promise((r) => setTimeout(r, SMARTHUB_OPEN_DELAY));
 
   if (!ws || ws.readyState !== WebSocket.OPEN) {
