@@ -196,7 +196,11 @@ function onSearchInput() {
           return;
         }
       }
-    } catch {}
+    } catch (err) {
+      if (err.message && err.message.includes("Not connected")) {
+        showToast("Not connected to TV", true);
+      }
+    }
     hideCastResults();
   }, 400);
 }
@@ -288,16 +292,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// --- Launch streaming app ---
-
-async function launchApp(appName) {
-  try {
-    await api("POST", "/api/launch", { app: appName });
-  } catch (err) {
-    showToast(err.message, true);
-  }
-}
-
 // --- Wake-on-LAN ---
 
 async function wakeTV() {
@@ -349,5 +343,15 @@ function clearPressed() {
 
 document.addEventListener("pointerup", clearPressed);
 document.addEventListener("pointercancel", clearPressed);
+
+// Dismiss cast results when clicking outside search area
+document.addEventListener("pointerdown", (e) => {
+  const container = document.getElementById("cast-results");
+  if (!container || !container.classList.contains("visible")) return;
+  const searchBar = document.querySelector(".search-bar");
+  if (!searchBar.contains(e.target) && !container.contains(e.target)) {
+    hideCastResults();
+  }
+});
 
 init();

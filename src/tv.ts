@@ -32,7 +32,6 @@ interface SavedConnection {
 
 let ws: WebSocket | null = null;
 let connectedDevice: SamsungDevice | null = null;
-let savedToken: string | undefined;
 
 // --- Discovery ---
 
@@ -212,7 +211,6 @@ export async function connectToTV(
     }
 
     ws = result.ws;
-    savedToken = result.token;
     connectedDevice = device;
     await saveConnection(device, result.token);
 
@@ -298,8 +296,6 @@ export async function sendKey(
     );
     return { success: true };
   } catch (err: any) {
-    ws = null;
-    connectedDevice = null;
     return { success: false, error: err.message || String(err) };
   }
 }
@@ -327,8 +323,6 @@ export async function sendText(
     );
     return { success: true };
   } catch (err: any) {
-    ws = null;
-    connectedDevice = null;
     return { success: false, error: err.message || String(err) };
   }
 }
@@ -567,6 +561,10 @@ export async function smartSearch(
   // Fallback: use SmartHub key-based search
   sendRawKey("KEY_SMART_HUB");
   await new Promise((r) => setTimeout(r, SMARTHUB_OPEN_DELAY));
+
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    return { success: false, app, search: searchTerm, error: "TV disconnected during search" };
+  }
 
   const encoded = Buffer.from(searchTerm).toString("base64");
   ws.send(

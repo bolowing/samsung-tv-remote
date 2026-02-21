@@ -112,7 +112,7 @@ app.post("/api/smart", async (req, res) => {
   }
   const result = await smartSearch(query);
   if (result.success) {
-    res.json({ success: true, app: result.app, search: result.search, message: result.error });
+    res.json({ success: true, app: result.app, search: result.search });
   } else {
     res.status(500).json({ success: false, error: result.error });
   }
